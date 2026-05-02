@@ -284,81 +284,220 @@ def visualizar_clusters(municipio_df: pd.DataFrame) -> None:
         (c for c in municipio_df.columns if "departamento" in c.lower()), None
     )
 
-    # ── Gráfica 1: Distribución de casos por cluster ──
-    fig_box = px.box(
-        municipio_df,
-        x="cluster",
-        y="total_casos",
-        color="cluster",
-        title="Distribución de homicidios por cluster de municipio",
-        labels={"total_casos": "Total de casos", "cluster": "Cluster"},
-        color_discrete_sequence=px.colors.qualitative.Bold,
+    COLORS = ["#4C72B0", "#55A868", "#C44E52", "#8172B2"]
+    CLUSTER_LABELS = {
+        0: "Cluster 0 — Moderada sostenida",
+        1: "Cluster 1 — Baja episódica",
+        2: "Cluster 2 — Outliers urbanos",
+        3: "Cluster 3 — Ciudades intermedias",
+    }
+
+    municipio_df = municipio_df.copy()
+    municipio_df["cluster_label"] = municipio_df["cluster"].map(
+        lambda x: CLUSTER_LABELS.get(x, f"Cluster {x}")
     )
-    fig_box.update_layout(showlegend=False)
+    municipio_df["cluster_str"] = municipio_df["cluster"].astype(str)
 
-    # ── Gráfica 2: Top 10 municipios por cluster ──
-    top_municipios = (
-        municipio_df.sort_values("total_casos", ascending=False)
-        .head(40)
+    # ── Gráfica 1: Cantidad de municipios por cluster (barras) ──
+    conteo = (
+        municipio_df.groupby(["cluster_str", "cluster_label"])
+        .size()
+        .reset_index(name="n_municipios")
+        .sort_values("cluster_str")
     )
+    fig1 = px.bar(
+        conteo,
+        x="cluster_label",
+        y="n_municipios",
+        color="cluster_str",
+        color_discrete_sequence=COLORS,
+        title="¿Cuántos municipios hay en cada cluster?",
+        labels={"n_municipios": "Número de municipios", "cluster_label": ""},
+        text="n_municipios",
+    )
+    fig1.update_traces(textposition="outside")
+    fig1.update_layout(showlegend=False, xaxis_tickangle=0)
 
-    hover_cols = [col_municipio, "total_casos", "cluster"]
-    if col_depto:
-        hover_cols.insert(1, col_depto)
-
-    fig_scatter = px.scatter(
-        top_municipios,
+    # ── Gráfica 2: Top 15 municipios más violentos (barras horizontales) ──
+    top15 = municipio_df.sort_values("total_casos", ascending=False).head(15).copy()
+    top15 = top15.sort_values("total_casos", ascending=True)  # para que el mayor quede arriba
+    hover_extra = [col_depto] if col_depto else []
+    fig2 = px.bar(
+        top15,
         x="total_casos",
-        y="cluster",
-        color="cluster",
-        hover_data=hover_cols,
-        size="total_casos",
-        title="Top 40 municipios más violentos coloreados por cluster",
-        labels={"total_casos": "Casos totales", "cluster": "Cluster"},
-        color_discrete_sequence=px.colors.qualitative.Bold,
+        y=col_municipio,
+        color="cluster_label",
+        color_discrete_sequence=COLORS,
+        orientation="h",
+        title="Top 15 municipios con más homicidios (2015–2024)",
+        labels={"total_casos": "Total de homicidios", col_municipio: "Municipio",
+                "cluster_label": "Cluster"},
+        hover_data=hover_extra + ["años_activos"],
+        text="total_casos",
+    )
+    fig2.update_traces(textposition="outside")
+    fig2.update_layout(yaxis_title="", legend_title="Cluster")
+
+    # ── Gráfica 3: Casos promedio por cluster (barras comparativas) ──
+    resumen = (
+        municipio_df.groupby(["cluster_str", "cluster_label"])[
+            ["total_casos", "años_activos"]
+        ]
+        .mean()
+        .round(1)
+        .reset_index()
+        .sort_values("cluster_str")
+    )
+    fig3 = make_subplots(
+        rows=1, cols=2,
+        subplot_titles=("Promedio de homicidios por municipio", "Promedio de años activos")
+    )
+    for i, (col, label) in enumerate(
+        [("total_casos", "Promedio casos"), ("años_activos", "Promedio años activos")], 1
+    ):
+        for j, row in resumen.iterrows():
+            fig3.add_trace(
+                go.Bar(
+                    x=[row["cluster_label"]],
+                    y=[row[col]],
+                    name=row["cluster_label"],
+                    marker_color=COLORS[int(row["cluster_str"])],
+                    showlegend=(i == 1),
+                    text=[f"{row[col]:.1f}"],
+                    textposition="outside",
+                ),
+                row=1, col=i,
+            )
+    fig3.update_layout(
+        title_text="Perfil promedio por cluster",
+        barmode="group",
+        legend_title="Cluster",
+        xaxis=dict(showticklabels=False),
+        xaxis2=dict(showticklabels=False),
     )
 
-    # ── Gráfica 3: Heatmap cluster × departamento (si existe) ──
-    figures = [fig_box, fig_scatter]
+    # ── Gráfica 4: Casos por departamento coloreados por cluster dominante ──
+    figures = [fig1, fig2, fig3]
     if col_depto:
-        heatmap_data = (
-            municipio_df.groupby([col_depto, "cluster"])["total_casos"]
+        # Cluster dominante por departamento
+        depto_cluster = (
+            municipio_df.groupby([col_depto, "cluster_label"])["total_casos"]
             .sum()
-            .unstack(fill_value=0)
+            .reset_index()
         )
-        fig_heat = px.imshow(
-            heatmap_data,
-            title="Casos por departamento y cluster",
-            labels={"x": "Cluster", "y": "Departamento", "color": "Casos"},
-            color_continuous_scale="Reds",
-            aspect="auto",
+        depto_total = (
+            municipio_df.groupby(col_depto)["total_casos"]
+            .sum()
+            .reset_index()
+            .rename(columns={"total_casos": "total_depto"})
+            .sort_values("total_depto", ascending=True)
         )
-        figures.append(fig_heat)
+        # Solo el cluster dominante (el de más casos) por departamento
+        idx_max = depto_cluster.groupby(col_depto)["total_casos"].idxmax()
+        depto_dominante = depto_cluster.loc[idx_max].merge(depto_total, on=col_depto)
+
+        fig4 = px.bar(
+            depto_dominante.sort_values("total_depto", ascending=True),
+            x="total_depto",
+            y=col_depto,
+            color="cluster_label",
+            color_discrete_sequence=COLORS,
+            orientation="h",
+            title="Homicidios por departamento — coloreado por cluster dominante",
+            labels={
+                "total_depto": "Total homicidios 2015–2024",
+                col_depto: "Departamento",
+                "cluster_label": "Cluster dominante",
+            },
+            text="total_depto",
+        )
+        fig4.update_traces(textposition="outside")
+        fig4.update_layout(yaxis_title="", height=700, legend_title="Cluster dominante")
+        figures.append(fig4)
 
     # ── Combinar en HTML ──
-    html_parts = [f.to_html(full_html=False, include_plotlyjs="cdn" if i == 0 else False)
-                  for i, f in enumerate(figures)]
+    html_parts = [
+        f.to_html(full_html=False, include_plotlyjs="cdn" if i == 0 else False)
+        for i, f in enumerate(figures)
+    ]
 
-    html_output = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <title>Clustering Municipios — Homicidios Colombia</title>
-        <style>
-            body {{ font-family: Arial, sans-serif; background: #f8f9fa; padding: 20px; }}
-            h1 {{ color: #2c3e50; }}
-            .chart {{ background: white; border-radius: 8px; padding: 15px;
-                      margin-bottom: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }}
-        </style>
-    </head>
-    <body>
+    html_output = """<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Clustering Municipios — Homicidios Colombia 2015-2024</title>
+    <style>
+        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+        body {{
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f0f2f5;
+            padding: 24px;
+            color: #222;
+        }}
+        .header {{
+            background: #1a2a4a;
+            color: white;
+            padding: 24px 32px;
+            border-radius: 10px;
+            margin-bottom: 24px;
+        }}
+        .header h1 {{ font-size: 1.6rem; margin-bottom: 6px; }}
+        .header p {{ font-size: 0.95rem; opacity: 0.75; }}
+        .grid {{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }}
+        .card {{
+            background: white;
+            border-radius: 10px;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }}
+        .card.full {{ grid-column: 1 / -1; }}
+        .legend {{
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+            padding: 12px 16px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+            font-size: 0.88rem;
+        }}
+        .legend-item {{ display: flex; align-items: center; gap: 8px; }}
+        .dot {{
+            width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
+        }}
+    </style>
+</head>
+<body>
+    <div class="header">
         <h1>Clustering de Municipios por Perfil de Violencia</h1>
-        <p>Análisis KMeans sobre homicidios Colombia 2015–2024 (INMLCF)</p>
-        {"".join(f'<div class="chart">{p}</div>' for p in html_parts)}
-    </body>
-    </html>
-    """
+        <p>KMeans (K=4) sobre 911 municipios &mdash; Homicidios Colombia 2015&ndash;2024 &mdash; Fuente: INMLCF</p>
+    </div>
+    <div class="legend">
+        <div class="legend-item"><div class="dot" style="background:#4C72B0"></div><strong>Cluster 0</strong> Violencia moderada y sostenida</div>
+        <div class="legend-item"><div class="dot" style="background:#55A868"></div><strong>Cluster 1</strong> Violencia baja y episódica</div>
+        <div class="legend-item"><div class="dot" style="background:#C44E52"></div><strong>Cluster 2</strong> Grandes centros urbanos (outliers)</div>
+        <div class="legend-item"><div class="dot" style="background:#8172B2"></div><strong>Cluster 3</strong> Ciudades intermedias con violencia estructural</div>
+    </div>
+    <div class="grid">
+        <div class="card">{chart0}</div>
+        <div class="card">{chart2}</div>
+    </div>
+    <div class="card full" style="margin-bottom:20px">{chart1}</div>
+    {chart3_html}
+</body>
+</html>""".format(
+        chart0=html_parts[0],
+        chart1=html_parts[1],
+        chart2=html_parts[2],
+        chart3_html=f'<div class="card full">{html_parts[3]}</div>' if len(html_parts) > 3 else "",
+    )
 
     out_path = f"{DASHBOARD_DIR}/clustering_municipios.html"
     with open(out_path, "w", encoding="utf-8") as f:
