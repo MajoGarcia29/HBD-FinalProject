@@ -54,7 +54,7 @@ python src/pipeline_full.py
 
 ---
 
-## Tecnologías usadas en mi parte
+## Tecnologías usadas parte 7,8,9
 
 | Herramienta | Uso |
 |---|---|
