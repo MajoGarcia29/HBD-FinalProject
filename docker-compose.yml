@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: homicidios_db
+    environment:
+      POSTGRES_USER: homicidios_user
+      POSTGRES_PASSWORD: homicidios_pass
+      POSTGRES_DB: homicidios_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U homicidios_user -d homicidios_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  pipeline:
+    build: .
+    container_name: homicidios_pipeline
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: homicidios_db
+      DB_USER: homicidios_user
+      DB_PASS: homicidios_pass
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: python src/pipeline_full.py
+
+volumes:
+  pg_data:
