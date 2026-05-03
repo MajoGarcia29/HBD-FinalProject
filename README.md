@@ -5,6 +5,44 @@ Pipeline de almacenamiento, análisis con machine learning y orquestación sobre
 
 ---
 
+## Paso 5 — Análisis agregado
+
+A partir del dataset limpio (`staging/processed/homicidios_clean.csv`) se calculan siete métricas agregadas usando pandas. Cada métrica es una función independiente en `src/analisis.py`:
+
+| Función | Descripción |
+|---|---|
+| `homicidios_por_anio()` | Serie de tiempo 2015–2024 |
+| `top_departamentos()` | Ranking de los 10 departamentos con más casos |
+| `distribucion_sexo()` | Conteo por sexo con porcentaje |
+| `mecanismo_causal()` | Unifica categorías duplicadas (ej. *corto punzante* / *cortopunzante*) y cuenta |
+| `heatmap_depto_circunstancia()` | Tabla pivote top 10 departamentos × top 8 circunstancias |
+| `homicidios_por_zona_anio()` | Casos por zona (cabecera, rural, centro poblado) por año |
+| `feminicidios_desde_2018()` | Evolución de feminicidios desde que el INMLCF creó la categoría |
+
+Todas se orquestan desde `ejecutar_analisis(df)`, que retorna un diccionario de DataFrames listo para el paso 6.
+
+```bash
+python src/analisis.py
+```
+
+## Paso 6 — Dashboard interactivo con Plotly
+
+`src/dashboard.py` consume el diccionario del paso 5 y genera un único archivo HTML autocontenido con 7 visualizaciones interactivas:
+
+1. **Serie de tiempo** — línea de homicidios por año 2015–2024
+2. **Top 10 departamentos** — barras horizontales con escala de color
+3. **Distribución por sexo** — gráfico de dona (91.9% hombres, 8% mujeres)
+4. **Mecanismo causal** — barras verticales top 8 (proyectil de arma de fuego lidera con 92,698 casos)
+5. **Heatmap** — matriz departamento × circunstancia del hecho
+6. **Líneas por zona** — cabecera municipal vs rural vs centro poblado a lo largo del tiempo
+7. **Feminicidios** — barras 2018–2024 (808 casos registrados)
+
+Output: `dashboard/dashboard_homicidios.html` — se abre directamente en el navegador, sin servidor.
+
+```bash
+python src/dashboard.py
+```
+
 
 ### Paso 7 — Carga en PostgreSQL
 
