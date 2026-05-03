@@ -19,11 +19,7 @@ A partir del dataset limpio (`staging/processed/homicidios_clean.csv`) se calcul
 | `homicidios_por_zona_anio()` | Casos por zona (cabecera, rural, centro poblado) por año |
 | `feminicidios_desde_2018()` | Evolución de feminicidios desde que el INMLCF creó la categoría |
 
-Todas se orquestan desde `ejecutar_analisis(df)`, que retorna un diccionario de DataFrames listo para el paso 6.
 
-```bash
-python src/analisis.py
-```
 
 ## Paso 6 — Dashboard interactivo con Plotly
 
@@ -37,11 +33,7 @@ python src/analisis.py
 6. **Líneas por zona** — cabecera municipal vs rural vs centro poblado a lo largo del tiempo
 7. **Feminicidios** — barras 2018–2024 (808 casos registrados)
 
-Output: `dashboard/dashboard_homicidios.html` — se abre directamente en el navegador, sin servidor.
 
-```bash
-python src/dashboard.py
-```
 
 
 ### Paso 7 — Carga en PostgreSQL
