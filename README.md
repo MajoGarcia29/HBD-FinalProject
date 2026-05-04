@@ -5,6 +5,22 @@ Pipeline de almacenamiento, análisis con machine learning y orquestación sobre
 
 ---
 
+## Paso 1–4 — Ingesta, Exploración y Limpieza
+
+En esta etapa se construyó el dataset base del proyecto a partir de los registros de homicidios del INMLCF (2015–2024).
+
+Primero se realizó la ingesta y exploración en un notebook de Jupyter, donde se analizaron tipos de datos, valores únicos, distribución de variables clave (como sexo, zona, actividad y escenario del hecho) y presencia de valores nulos. Esto permitió entender la calidad del dataset y detectar inconsistencias.
+
+Luego, la limpieza se implementó en pipeline.py, separando la lógica del análisis. En este proceso se:
+
+- Se normalizaron categorías duplicadas o mal escritas (ej. diferencias de mayúsculas o espacios).
+- Se estandarizaron variables categóricas.
+- Se trataron valores nulos en columnas con alto porcentaje de ausencia.
+- Se corrigieron inconsistencias en texto.
+
+El resultado es un dataset limpio y consistente, almacenado en:
+staging/processed/homicidios_clean.csv, que sirve como entrada para las etapas de análisis, visualización y modelado del pipeline.
+
 ## Paso 5 — Análisis agregado
 
 A partir del dataset limpio (`staging/processed/homicidios_clean.csv`) se calculan siete métricas agregadas usando pandas. Cada métrica es una función independiente en `src/analisis.py`:
