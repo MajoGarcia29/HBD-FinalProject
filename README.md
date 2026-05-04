@@ -5,21 +5,62 @@ Pipeline de almacenamiento, análisis con machine learning y orquestación sobre
 
 ---
 
-## Paso 1–4 — Ingesta, Exploración y Limpieza
+## Paso 1 — Ingesta de datos
+Se realizó la carga del dataset de homicidios del INMLCF (2015–2024) utilizando pandas.
+El archivo original contiene 125.284 registros y 30+ variables relacionadas con características de la víctima, ubicación del hecho y contexto del homicidio.
 
-En esta etapa se construyó el dataset base del proyecto a partir de los registros de homicidios del INMLCF (2015–2024).
+## Paso 2 — Exploración de datos (EDA)
+La exploración se llevó a cabo en un notebook de Jupyter con el objetivo de entender la estructura y calidad del dataset.
+Se analizaron:
 
-Primero se realizó la ingesta y exploración en un notebook de Jupyter, donde se analizaron tipos de datos, valores únicos, distribución de variables clave (como sexo, zona, actividad y escenario del hecho) y presencia de valores nulos. Esto permitió entender la calidad del dataset y detectar inconsistencias.
 
-Luego, la limpieza se implementó en pipeline.py, separando la lógica del análisis. En este proceso se:
+Tipos de datos (df.dtypes)
 
-- Se normalizaron categorías duplicadas o mal escritas (ej. diferencias de mayúsculas o espacios).
-- Se estandarizaron variables categóricas.
-- Se trataron valores nulos en columnas con alto porcentaje de ausencia.
-- Se corrigieron inconsistencias en texto.
 
-El resultado es un dataset limpio y consistente, almacenado en:
-staging/processed/homicidios_clean.csv, que sirve como entrada para las etapas de análisis, visualización y modelado del pipeline.
+Valores únicos en variables categóricas
+
+
+Distribución de variables clave como sexo, estado civil, zona, actividad y escenario del hecho
+
+
+Cantidad y porcentaje de valores nulos por columna
+
+
+Durante esta etapa se identificaron problemas como:
+
+
+Categorías duplicadas (ej. diferencias en mayúsculas/minúsculas)
+
+
+Valores como “Sin información” usados como categoría
+
+
+Columnas con alto porcentaje de nulos (género, orientación sexual)
+
+
+
+## Paso 3 — Limpieza de datos
+La limpieza se implementó en el archivo pipeline.py, separando el procesamiento del análisis exploratorio.
+Las principales transformaciones fueron:
+
+
+Normalización de texto en variables categóricas (minúsculas, eliminación de espacios inconsistentes)
+
+
+Unificación de categorías duplicadas
+
+
+Tratamiento de valores nulos (mantener, agrupar o estandarizar como “sin información” según el caso)
+
+
+Corrección de inconsistencias detectadas en el EDA
+
+
+
+## Paso 4 — Generación del dataset limpio
+Finalmente, el dataset procesado se exportó a un archivo CSV en la ruta:
+staging/processed/homicidios_clean.csv
+Este archivo sirve como base para las siguientes etapas del pipeline: análisis agregado, visualización, almacenamiento en base de datos y modelado.
 
 ## Paso 5 — Análisis agregado
 
